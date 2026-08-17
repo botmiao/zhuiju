@@ -1,0 +1,71 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "defaultTimezone", "concurrency", "taskDefaults", "incremental", "validation", "storage", "notifications"],
+  "properties": {
+    "schemaVersion": { "enum": [1, 2] },
+    "defaultTimezone": { "type": "string", "minLength": 1 },
+    "concurrency": {
+      "type": "object", "additionalProperties": false,
+      "required": ["maximumActiveSubscriptions", "perSubscription", "onSubscriptionOverlap", "leaseTimeoutMinutes"],
+      "properties": {
+        "maximumActiveSubscriptions": { "type": "integer", "minimum": 1 },
+        "perSubscription": { "const": 1 },
+        "onSubscriptionOverlap": { "const": "coalesce" },
+        "leaseTimeoutMinutes": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "taskDefaults": {
+      "type": "object", "additionalProperties": false,
+      "required": ["maximumDurationMinutes", "maximumPages", "maximumBrowserNavigations", "maximumCandidateUrls"],
+      "properties": {
+        "maximumDurationMinutes": { "type": "integer", "minimum": 1 },
+        "maximumPages": { "type": "integer", "minimum": 1 },
+        "maximumBrowserNavigations": { "type": "integer", "minimum": 0 },
+        "maximumCandidateUrls": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "incremental": {
+      "type": "object", "additionalProperties": false,
+      "required": ["target", "maximumEpisodesPerRun", "includeHistoricalGaps"],
+      "properties": {
+        "target": { "const": "latest-missing" },
+        "maximumEpisodesPerRun": { "type": "integer", "minimum": 1 },
+        "includeHistoricalGaps": { "type": "boolean" }
+      }
+    },
+    "validation": {
+      "type": "object", "additionalProperties": false,
+      "required": ["minimumAcquiredLevel", "checkSegments", "segmentSampleCount", "useFfprobe", "revalidateOnUserRead"],
+      "properties": {
+        "minimumAcquiredLevel": { "enum": ["discovered", "http-valid", "manifest-valid", "playlist-valid", "segment-valid", "decodable"] },
+        "checkSegments": { "type": "boolean" },
+        "segmentSampleCount": { "type": "integer", "minimum": 0 },
+        "useFfprobe": { "type": "boolean" },
+        "revalidateOnUserRead": { "type": "boolean" }
+      }
+    },
+    "storage": {
+      "type": "object", "additionalProperties": false,
+      "required": ["retainInvalidMediaUrls", "retainExpiredMediaUrls", "retainLogsDays", "retainTracesDays", "backupCount"],
+      "properties": {
+        "retainInvalidMediaUrls": { "type": "boolean" },
+        "retainExpiredMediaUrls": { "type": "boolean" },
+        "retainLogsDays": { "type": "integer", "minimum": 0 },
+        "retainTracesDays": { "type": "integer", "minimum": 0 },
+        "backupCount": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "notifications": {
+      "type": "object", "additionalProperties": false,
+      "required": ["notifyOnNewMedia", "notifyOnBootstrapComplete", "notifyOnAllMediaExpired", "notifyOnTemporaryFailure"],
+      "properties": {
+        "notifyOnNewMedia": { "type": "boolean" },
+        "notifyOnBootstrapComplete": { "type": "boolean" },
+        "notifyOnAllMediaExpired": { "type": "boolean" },
+        "notifyOnTemporaryFailure": { "type": "boolean" }
+      }
+    }
+  }
+}

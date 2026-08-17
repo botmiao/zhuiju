@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object", "additionalProperties": false,
+  "required": ["schemaVersion", "id", "taskId", "subscriptionId", "mode", "trigger", "createdAt", "reasons", "status"],
+  "properties": {
+    "schemaVersion": { "enum": [1, 2] },
+    "id": { "type": "string", "pattern": "^queue_" },
+    "taskId": { "type": "string", "pattern": "^task_" },
+    "subscriptionId": { "type": "string" },
+    "mode": { "enum": ["bootstrap", "incremental", "repair", "manual", "validate"] },
+    "trigger": { "enum": ["manual", "cron", "rerun", "system"] },
+    "createdAt": { "type": "string" },
+    "reasons": { "type": "array", "items": { "type": "string" } },
+    "status": { "enum": ["pending", "running", "completed", "failed", "cancelled"] }
+  }
+}

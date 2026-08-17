@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object", "additionalProperties": false,
+  "required": ["schemaVersion", "id", "subscriptionId", "status", "mode", "trigger", "reasons", "currentEpisodeKey", "phase", "startedAt", "heartbeatAt", "rerunRequested", "budget", "progress", "lastError"],
+  "properties": {
+    "schemaVersion": { "enum": [1, 2] },
+    "id": { "type": "string", "pattern": "^task_" },
+    "subscriptionId": { "type": "string" },
+    "status": { "enum": ["idle", "queued", "running", "completed", "failed", "paused", "cancelled"] },
+    "mode": { "enum": ["bootstrap", "incremental", "repair", "manual", "validate"] },
+    "trigger": { "enum": ["manual", "cron", "rerun", "system"] },
+    "reasons": { "type": "array", "items": { "type": "string" } },
+    "currentEpisodeKey": { "type": ["string", "null"] },
+    "phase": { "enum": ["refreshing-catalog", "selecting-target", "searching", "extracting", "validating", "persisting", "notifying", "idle"] },
+    "startedAt": { "type": ["string", "null"] },
+    "heartbeatAt": { "type": ["string", "null"] },
+    "rerunRequested": { "type": "boolean" },
+    "budget": { "type": "object" },
+    "progress": { "type": "object" },
+    "lastError": { "type": ["object", "null"] },
+    "result": { "type": ["object", "null"] }
+  }
+}

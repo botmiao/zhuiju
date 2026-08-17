@@ -1,0 +1,23 @@
+{
+  "skill_name": "zhuiju",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "订阅《仙逆》，我已经有第 1 到 120 集，请找出当前已发布但缺失的集数并准备首次补抓。",
+      "expected_output": "The agent creates a subscription, preserves unknown total count when not confirmed, computes released-minus-acquired ranges, and selects bootstrap targets newest first.",
+      "files": []
+    },
+    {
+      "id": 2,
+      "prompt": "只处理这次发现的第 124 集媒体地址；页面里的地址需要你自己验证后再保存。",
+      "expected_output": "The agent uses manual mode, submits only an observed candidate through media submit, performs bounded validation, and never edits episode JSON directly.",
+      "files": []
+    },
+    {
+      "id": 3,
+      "prompt": "给仙逆设置每周日 18:25、18:50、19:40 三次检查，并确保重复触发不会并发跑两个任务。",
+      "expected_output": "The agent stores multiple triggers for one logical task, syncs the schedule, and relies on task enqueue/coalescing plus subscription locking.",
+      "files": []
+    }
+  ]
+}

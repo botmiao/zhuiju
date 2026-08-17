@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object", "additionalProperties": false,
+  "required": ["schemaVersion", "subscriptionId", "timezone", "rule", "triggerTimes", "hostJobIds", "updatedAt"],
+  "properties": {
+    "schemaVersion": { "enum": [1, 2] },
+    "subscriptionId": { "type": "string" },
+    "timezone": { "type": "string", "minLength": 1 },
+    "rule": { "type": "object" },
+    "triggerTimes": { "type": "array", "items": { "type": "string", "pattern": "^[0-2][0-9]:[0-5][0-9]$" } },
+    "oneTimeTriggers": { "type": "array", "items": { "type": "object" } },
+    "suppressed": { "type": "array", "items": { "type": "string" } },
+    "hostJobIds": { "type": "array", "items": { "type": "string" } },
+    "updatedAt": { "type": "string" }
+  }
+}

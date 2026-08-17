@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object", "additionalProperties": false,
+  "required": ["schemaVersion", "id", "url", "normalizedKey", "sameResourceGroup", "mediaType", "availability", "accessRequirement", "lifetimeState", "validationLevel", "variants", "requestContext", "provenance", "firstSeenAt", "lastSeenAt", "lastValidatedAt", "estimatedExpiresAt", "seenCount", "note"],
+  "properties": {
+    "schemaVersion": { "enum": [1, 2] },
+    "id": { "type": "string", "pattern": "^media_[A-Za-z0-9_-]+$" },
+    "url": { "type": "string", "minLength": 1 },
+    "normalizedKey": { "type": "string", "minLength": 1 },
+    "sameResourceGroup": { "type": ["string", "null"] },
+    "mediaType": { "enum": ["hls-master", "hls-media", "dash", "mp4", "webm", "unknown"] },
+    "availability": { "enum": ["discovered", "checking", "playable", "temporarily-unavailable", "invalid", "unsupported"] },
+    "accessRequirement": { "enum": ["none", "headers", "session", "unknown"] },
+    "lifetimeState": { "enum": ["active", "possibly-expired", "expired", "unknown"] },
+    "validationLevel": { "enum": ["discovered", "http-valid", "manifest-valid", "playlist-valid", "segment-valid", "decodable"] },
+    "variants": { "type": "array", "items": { "type": "object" } },
+    "requestContext": { "type": "object" },
+    "provenance": { "type": "array", "items": { "type": "object" } },
+    "firstSeenAt": { "type": "string" },
+    "lastSeenAt": { "type": "string" },
+    "lastValidatedAt": { "type": ["string", "null"] },
+    "estimatedExpiresAt": { "type": ["string", "null"] },
+    "seenCount": { "type": "integer", "minimum": 1 },
+    "note": { "type": ["string", "null"] }
+  }
+}

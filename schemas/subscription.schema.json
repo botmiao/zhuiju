@@ -1,0 +1,53 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "id", "slug", "title", "aliases", "contentType", "status", "enabled", "episodeProgress", "releaseSchedule", "sourcePolicy", "incrementalPolicy", "exceptions", "notes", "createdAt", "updatedAt"],
+  "properties": {
+    "schemaVersion": { "enum": [1, 2] },
+    "id": { "type": "string", "pattern": "^sub_[A-Za-z0-9_-]+$" },
+    "slug": { "type": "string", "minLength": 1 },
+    "title": { "type": "string", "minLength": 1 },
+    "aliases": { "type": "array", "items": { "type": "string" } },
+    "contentType": { "type": "string", "minLength": 1 },
+    "status": { "enum": ["airing", "completed", "paused", "cancelled", "unknown"] },
+    "enabled": { "type": "boolean" },
+    "episodeProgress": {
+      "type": "object", "additionalProperties": false,
+      "required": ["totalEpisodes", "totalEpisodesState", "releaseCatalog", "acquiredRanges"],
+      "properties": {
+        "totalEpisodes": { "type": ["integer", "null"], "minimum": 0 },
+        "totalEpisodesState": { "enum": ["known", "not-announced", "ongoing-indefinite", "uncertain"] },
+        "releaseCatalog": {
+          "type": "object", "additionalProperties": false,
+          "required": ["latestKnownEpisodeKey", "releasedRanges", "state", "checkedAt", "evidence"],
+          "properties": {
+            "latestKnownEpisodeKey": { "type": ["string", "null"] },
+            "releasedRanges": { "type": "array", "items": { "$ref": "#/$defs/range" } },
+            "state": { "enum": ["confirmed", "uncertain", "failed", "never-checked"] },
+            "checkedAt": { "type": ["string", "null"] },
+            "evidence": { "type": "array", "items": { "type": "object" } }
+          }
+        },
+        "acquiredRanges": { "type": "array", "items": { "$ref": "#/$defs/range" } }
+      }
+    },
+    "releaseSchedule": { "type": "object" },
+    "sourcePolicy": { "type": "object" },
+    "incrementalPolicy": { "type": "object" },
+    "exceptions": { "type": "array", "items": { "type": "object" } },
+    "notes": { "type": "array", "items": { "type": "string" } },
+    "createdAt": { "type": "string" },
+    "updatedAt": { "type": "string" }
+  },
+  "$defs": {
+    "range": {
+      "type": "object", "additionalProperties": false,
+      "required": ["from", "to"],
+      "properties": {
+        "from": { "type": "integer", "minimum": 1 },
+        "to": { "type": "integer", "minimum": 1 }
+      }
+    }
+  }
+}

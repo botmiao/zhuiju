@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object", "additionalProperties": false,
+  "required": ["schemaVersion", "episodeKey", "sequence", "displayNumber", "kind", "title", "releaseAt", "releaseStatus", "acquisitionStatus", "mediaUrls", "notes", "createdAt", "updatedAt"],
+  "properties": {
+    "schemaVersion": { "enum": [1, 2] },
+    "episodeKey": { "type": "string", "minLength": 1 },
+    "sequence": { "type": ["integer", "null"], "minimum": 1 },
+    "displayNumber": { "type": "string", "minLength": 1 },
+    "kind": { "enum": ["main", "special", "ova", "other"] },
+    "title": { "type": "string", "minLength": 1 },
+    "releaseAt": { "type": ["string", "null"] },
+    "releaseStatus": { "enum": ["scheduled", "released", "delayed", "skipped", "cancelled", "unknown"] },
+    "acquisitionStatus": { "enum": ["pending", "searching", "acquired", "partially-acquired", "not-found", "failed", "skipped"] },
+    "mediaUrls": { "type": "array", "items": { "type": "object" } },
+    "notes": { "type": "array", "items": { "type": "string" } },
+    "createdAt": { "type": "string" },
+    "updatedAt": { "type": "string" }
+  }
+}
