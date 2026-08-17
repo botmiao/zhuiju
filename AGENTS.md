@@ -31,4 +31,4 @@ rtk node scripts/cli.mjs doctor
 
 ## 验证
 
-在声称工作完成前，运行 `rtk npm test`，在隔离的 `ZHUIJU_HOME` 中执行相关 CLI 命令，并检查实际的 JSON 输出。本工作区最初不是 Git 仓库，因此除非 Git 已初始化且提交命令成功，否则不要声称已经创建提交。
+在声称工作完成前，运行 `rtk npm test`，在隔离的 `ZHUIJU_HOME` 中执行相关 CLI 命令，并检查实际的 JSON 输出。
