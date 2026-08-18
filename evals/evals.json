@@ -18,6 +18,12 @@
       "prompt": "给仙逆设置每周日 18:25、18:50、19:40 三次检查，并确保重复触发不会并发跑两个任务。",
       "expected_output": "The agent stores multiple triggers for one logical task, syncs the schedule, and relies on task enqueue/coalescing plus subscription locking.",
       "files": []
+    },
+    {
+      "id": 4,
+      "prompt": "订阅某番剧，官方每周日 24 点更新，但有超前点映周日 18 点开始，第三方大约 18:30 后才能搜到，检查时间该怎么安排？",
+      "expected_output": "The agent confirms the timezone, attributes Sunday 24:00 to Monday 00:00, sets the first trigger around 19:00 (screening plus about one hour) with staggered rechecks and a post-official-time fallback, writes them as triggerTimes, and runs schedule sync per schedule-timing.md.",
+      "files": []
     }
   ]
 }

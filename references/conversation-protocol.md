@@ -12,4 +12,4 @@ Use natural language to collect intent, but turn every state-changing operation 
 | Pause/resume/cancel | Subscription or task command |
 | Change trigger times | Update schedule, then `schedule sync` |
 
-Ask only for missing information that changes the operation: title identity, acquired ranges, authorized source restrictions, or timezone. Preserve unknown totals as an explicit unknown state. Never silently widen `specified-only` to public search.
+Ask only for missing information that changes the operation: title identity, acquired ranges, authorized source restrictions, timezone, or advance-screening timing (see `schedule-timing.md`). Preserve unknown totals as an explicit unknown state. Never silently widen `specified-only` to public search.

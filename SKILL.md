@@ -37,6 +37,7 @@ description: 用于用户要求订阅、监控、补齐、验证或查找动漫�
 - `references/conversation-protocol.md`
 - `references/agent-extraction.md`
 - `references/task-lifecycle.md`
+- `references/schedule-timing.md`
 - `references/media-validation.md`
 - `references/runtime-capabilities.md`
 - `references/security.md`
@@ -44,7 +45,7 @@ description: 用于用户要求订阅、监控、补齐、验证或查找动漫�
 
 ## 订阅流程
 
-对于新订阅，确认标题、别名、内容类型、总剧集状态、已获取范围、发布目录、排期、时区、来源策略和例外规则。通过 CLI 创建订阅，然后按从新到旧的顺序，逐集补齐所有已发布但尚未获取的剧集。
+对于新订阅，确认标题、别名、内容类型、总剧集状态、已获取范围、发布目录、排期、时区、超前点映/最早可搜索时间、来源策略和例外规则。通过 CLI 创建订阅，然后按从新到旧的顺序，逐集补齐所有已发布但尚未获取的剧集。
 
 对于定时检查，刷新目录，默认只处理最新的缺失剧集。历史缺口使用 `repair`，已有地址的检查使用 `validate`。
 
