@@ -1,10 +1,11 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { atomicWriteJson, readJsonFile } from '../lib/atomic-file.mjs';
+import { assertSubscriptionId } from '../lib/paths.mjs';
 import { assertSchema } from '../lib/schema.mjs';
 
 export function createScheduleStore(root) {
-  const filename = (id) => path.join(root, 'schedules', `${id}.json`);
+  const filename = (id) => path.join(root, 'schedules', `${assertSubscriptionId(id)}.json`);
   return {
     async save(schedule) {
       assertSchema('schedule', schedule);

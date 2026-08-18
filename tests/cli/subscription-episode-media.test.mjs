@@ -36,3 +36,17 @@ test('subscription and episode CLI output is structured JSON', async () => {
   assert.equal(ensured.code, 0, ensured.stderr);
   assert.equal(JSON.parse(ensured.stdout).data.episodeKey, 'main:1');
 });
+
+test('rejects path-traversing subscription identifiers without touching the filesystem', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'zhuiju-cli-'));
+  for (const args of [['subscription', 'get', '../../outside'], ['subscription', 'remove', '..\\..\\outside'], ['schedule', 'show', 'sub_..%2f..']]) {
+    const result = await runCli(root, args);
+    assert.equal(result.code, 1, `${args.join(' ')}: ${result.stdout}`);
+    const parsed = JSON.parse(result.stdout);
+    assert.equal(parsed.ok, false, args.join(' '));
+    assert.equal(parsed.code, 'VALIDATION_ERROR', args.join(' '));
+  }
+  let entries = [];
+  try { entries = await fs.readdir(root); } catch { /* root may not exist */ }
+  assert.deepEqual(entries, []);
+});

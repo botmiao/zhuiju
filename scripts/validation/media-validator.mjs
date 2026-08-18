@@ -14,28 +14,30 @@ export async function validateMediaCandidate(candidate, config = {}) {
   const { url, normalizedKey } = normalizeUrl(candidate.url);
   const fetcher = config.fetcher || defaultFetcher;
   const parsed = new URL(url);
+  const observedHeaders = {
+    ...(candidate.requestContext?.referer ? { referer: candidate.requestContext.referer } : {}),
+    ...(candidate.requestContext?.origin ? { origin: candidate.requestContext.origin } : {})
+  };
+  const mediaFetcher = (requestUrl, options = {}) => fetcher(requestUrl, { ...options, headers: { ...(options.headers || {}), ...observedHeaders } });
+  const access = config.checkAccessRequirements === false ? { accessRequirement: 'none', requiredHeaderNames: [] } : await determineAccessRequirement(url, { fetcher, requestContext: { headers: observedHeaders }, probeTimeoutMs: config.accessProbeTimeoutMs });
+  if (access.accessRequirement === 'session') throw new Error('Media URL requires an authenticated session and cannot be validated');
   let result;
-  if (/\.m3u8(?:$|\?)/i.test(parsed.pathname)) result = await validateHls(url, { ...config, fetcher });
-  else if (/\.mpd(?:$|\?)/i.test(parsed.pathname)) result = await validateDash(url, { ...config, fetcher });
-  else if (/\.webm(?:$|\?)/i.test(parsed.pathname)) result = await validateWebm(url, { ...config, fetcher });
-  else if (/\.mp4(?:$|\?)/i.test(parsed.pathname)) result = await validateMp4(url, { ...config, fetcher });
+  if (/\.m3u8(?:$|\?)/i.test(parsed.pathname)) result = await validateHls(url, { ...config, fetcher: mediaFetcher });
+  else if (/\.mpd(?:$|\?)/i.test(parsed.pathname)) result = await validateDash(url, { ...config, fetcher: mediaFetcher });
+  else if (/\.webm(?:$|\?)/i.test(parsed.pathname)) result = await validateWebm(url, { ...config, fetcher: mediaFetcher });
+  else if (/\.mp4(?:$|\?)/i.test(parsed.pathname)) result = await validateMp4(url, { ...config, fetcher: mediaFetcher });
   else {
-    const responseResult = await fetcher(url, { method: 'GET', headers: { Range: 'bytes=0-65535' } });
+    const responseResult = await mediaFetcher(url, { method: 'GET', headers: { Range: 'bytes=0-65535' } });
     const response = responseResult.response || responseResult;
     const contentType = response.headers.get('content-type') || '';
-    if (contentType.includes('mpegurl')) result = await validateHls(url, { ...config, fetcher });
-    else if (contentType.includes('dash') || contentType.includes('xml')) result = await validateDash(url, { ...config, fetcher });
-    else if (contentType.includes('webm')) result = await validateWebm(url, { ...config, fetcher });
-    else if (contentType.includes('mp4')) result = await validateMp4(url, { ...config, fetcher });
+    await response.body?.cancel?.().catch(() => {});
+    if (contentType.includes('mpegurl')) result = await validateHls(url, { ...config, fetcher: mediaFetcher });
+    else if (contentType.includes('dash') || contentType.includes('xml')) result = await validateDash(url, { ...config, fetcher: mediaFetcher });
+    else if (contentType.includes('webm')) result = await validateWebm(url, { ...config, fetcher: mediaFetcher });
+    else if (contentType.includes('mp4')) result = await validateMp4(url, { ...config, fetcher: mediaFetcher });
     else throw new Error('Candidate response is not a supported media resource');
   }
-  const requestContext = {
-    headers: {
-      ...(candidate.requestContext?.referer ? { referer: candidate.requestContext.referer } : {}),
-      ...(candidate.requestContext?.origin ? { origin: candidate.requestContext.origin } : {})
-    }
-  };
-  const access = config.checkAccessRequirements === false ? { accessRequirement: 'none', requiredHeaderNames: [] } : await determineAccessRequirement(url, { fetcher, requestContext });
+  const requestContext = { headers: observedHeaders };
   return {
     ...result,
     url,

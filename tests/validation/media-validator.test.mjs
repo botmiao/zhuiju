@@ -17,6 +17,17 @@ async function fixtureServer() {
     } else if (request.url === '/video.mp4') {
       response.writeHead(206, { 'content-type': 'video/mp4', 'content-range': 'bytes 0-7/100', 'content-length': '8' });
       response.end(Buffer.from([0, 0, 0, 8, 0x66, 0x74, 0x79, 0x70]));
+    } else if (request.url === '/refer.mp4') {
+      if (!(request.headers.referer || '').includes('source.example')) {
+        response.writeHead(403, { 'content-type': 'text/plain' });
+        response.end('hotlinking denied');
+      } else {
+        response.writeHead(206, { 'content-type': 'video/mp4', 'content-range': 'bytes 0-7/100', 'content-length': '8' });
+        response.end(Buffer.from([0, 0, 0, 8, 0x66, 0x74, 0x79, 0x70]));
+      }
+    } else if (request.url === '/auth.mp4') {
+      response.writeHead(403, { 'content-type': 'text/plain' });
+      response.end('login required');
     } else {
       response.writeHead(200, { 'content-type': 'text/html' });
       response.end('<html>not media</html>');
@@ -136,5 +147,38 @@ test('rejects an HTML error page as media', async (t) => {
   await assert.rejects(
     () => validateMediaCandidate({ url: `${fixture.base}/error` }, { fetcher: (url, options) => fetch(url, { ...options, redirect: 'manual' }) }),
     /media|HTML|invalid/i
+  );
+});
+
+test('bounds MP4 validation when the server ignores Range and streams forever', { timeout: 5000 }, async (t) => {
+  const server = http.createServer((request, response) => {
+    response.writeHead(200, { 'content-type': 'video/mp4' });
+    response.write(Buffer.from([0, 0, 0, 8, 0x66, 0x74, 0x79, 0x70]));
+    const timer = setInterval(() => { response.write(Buffer.alloc(1024)); }, 5);
+    request.on('close', () => { clearInterval(timer); });
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  t.after(() => { server.closeAllConnections?.(); server.close(); });
+  const result = await validateMediaCandidate({ url: `http://127.0.0.1:${server.address().port}/video.mp4` }, {
+    fetcher: (url, options) => fetch(url, { ...options, redirect: 'manual' }),
+    accessProbeTimeoutMs: 500
+  });
+  assert.equal(result.mediaType, 'mp4');
+  assert.equal(result.validationLevel, 'http-valid');
+});
+
+test('classifies header-gated and session-gated access requirements', async (t) => {
+  const fixture = await fixtureServer();
+  t.after(() => fixture.server.close());
+  const fetcher = (url, options) => fetch(url, { ...options, redirect: 'manual' });
+  const headered = await validateMediaCandidate({
+    url: `${fixture.base}/refer.mp4`,
+    requestContext: { referer: 'https://source.example/page' }
+  }, { fetcher });
+  assert.equal(headered.accessRequirement, 'headers');
+  assert.deepEqual(headered.requestContext.requiredHeaderNames, ['referer']);
+  await assert.rejects(
+    () => validateMediaCandidate({ url: `${fixture.base}/auth.mp4` }, { fetcher }),
+    /authenticated session/i
   );
 });

@@ -24,8 +24,17 @@ export function dataPaths(root) {
   };
 }
 
+export function assertSubscriptionId(id) {
+  if (typeof id !== 'string' || !/^sub_[A-Za-z0-9_-]+$/.test(id)) {
+    const error = new Error(`Invalid subscription id: ${id}`);
+    error.code = 'VALIDATION_ERROR';
+    throw error;
+  }
+  return id;
+}
+
 export function subscriptionPaths(root, subscriptionId) {
-  const base = path.join(root, 'subscriptions', subscriptionId);
+  const base = path.join(root, 'subscriptions', assertSubscriptionId(subscriptionId));
   return {
     base,
     subscription: path.join(base, 'subscription.json'),
