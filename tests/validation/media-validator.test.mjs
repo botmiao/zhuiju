@@ -25,6 +25,12 @@ async function fixtureServer() {
         response.writeHead(206, { 'content-type': 'video/mp4', 'content-range': 'bytes 0-7/100', 'content-length': '8' });
         response.end(Buffer.from([0, 0, 0, 8, 0x66, 0x74, 0x79, 0x70]));
       }
+    } else if (request.url === '/manifest.mpd') {
+      response.writeHead(200, { 'content-type': 'application/dash+xml' });
+      response.end('<?xml version="1.0"?><MPD><Period><AdaptationSet><SegmentTemplate initialization="init-$RepresentationID$.m4s" media="chunk-$RepresentationID$-$Number$.m4s" startNumber="1"/><Representation id="video-1" bandwidth="1000" width="640" height="360"/></AdaptationSet></Period></MPD>');
+    } else if (request.url === '/init-video-1.m4s') {
+      response.writeHead(206, { 'content-type': 'video/iso.segment', 'content-range': 'bytes 0-7/100', 'content-length': '8' });
+      response.end('initseg!');
     } else if (request.url === '/auth.mp4') {
       response.writeHead(403, { 'content-type': 'text/plain' });
       response.end('login required');
@@ -40,15 +46,24 @@ async function fixtureServer() {
 test('validates an HLS master and samples a media segment', async (t) => {
   const fixture = await fixtureServer();
   t.after(() => fixture.server.close());
+  let segmentRequests = 0;
   const result = await validateMediaCandidate({
     url: `${fixture.base}/master.m3u8`,
     observedFrom: { type: 'page', url: `${fixture.base}/page` },
     observationMethod: 'html-attribute'
-  }, { fetcher: (url, options) => fetch(url, { ...options, redirect: 'manual' }), segmentSampleCount: 1, ffprobeRunner: async () => ({ status: 'unavailable' }) });
+  }, {
+    fetcher: (url, options) => {
+      if (url.endsWith('/segment.ts')) segmentRequests += 1;
+      return fetch(url, { ...options, redirect: 'manual' });
+    },
+    segmentSampleCount: 1,
+    ffprobeRunner: async () => ({ status: 'unavailable' })
+  });
   assert.equal(result.mediaType, 'hls-master');
   assert.equal(result.availability, 'playable');
   assert.equal(result.validationLevel, 'segment-valid');
   assert.equal(result.variants.length, 1);
+  assert.equal(segmentRequests, 1);
 });
 
 test('uses ffprobe for HLS validation when available', async (t) => {
@@ -62,7 +77,7 @@ test('uses ffprobe for HLS validation when available', async (t) => {
     observationMethod: 'html-attribute'
   }, {
     fetcher: (url, options) => {
-      if (url.endsWith('/media.m3u8')) sampledRequests += 1;
+      if (url.endsWith('/segment.ts')) sampledRequests += 1;
       return fetch(url, { ...options, redirect: 'manual' });
     },
     ffprobeRunner: async (url) => {
@@ -181,4 +196,22 @@ test('classifies header-gated and session-gated access requirements', async (t) 
     () => validateMediaCandidate({ url: `${fixture.base}/auth.mp4` }, { fetcher }),
     /authenticated session/i
   );
+});
+
+test('validates DASH by sampling an initialization segment', async (t) => {
+  const fixture = await fixtureServer();
+  t.after(() => fixture.server.close());
+  let initRequests = 0;
+  const result = await validateMediaCandidate({
+    url: `${fixture.base}/manifest.mpd`,
+    observedFrom: { type: 'page', url: `${fixture.base}/page` }
+  }, {
+    fetcher: (url, options) => {
+      if (url.endsWith('/init-video-1.m4s')) initRequests += 1;
+      return fetch(url, { ...options, redirect: 'manual' });
+    }
+  });
+  assert.equal(result.mediaType, 'dash');
+  assert.equal(result.validationLevel, 'segment-valid');
+  assert.equal(initRequests, 1);
 });

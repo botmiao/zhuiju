@@ -4,31 +4,53 @@ function attributes(text) {
   return Object.fromEntries([...text.matchAll(/([A-Z0-9-]+)=((?:"[^"]*")|[^,]*)/g)].map((match) => [match[1], match[2].replace(/^"|"$/g, '')]));
 }
 
+function parsePlaylist(body, url) {
+  const lines = body.split(/\r?\n/).map((line) => line.trim());
+  const variants = [];
+  const variantLines = new Set();
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index];
+    if (!line.startsWith('#EXT-X-STREAM-INF:')) continue;
+    const variantIndex = lines.findIndex((candidate, position) => position > index && candidate && !candidate.startsWith('#'));
+    if (variantIndex === -1) continue;
+    variantLines.add(variantIndex);
+    const info = attributes(line.slice('#EXT-X-STREAM-INF:'.length));
+    const resolution = info.RESOLUTION?.match(/^(\d+)x(\d+)$/);
+    variants.push({
+      url: new URL(lines[variantIndex], url).toString(),
+      width: resolution ? Number(resolution[1]) : null,
+      height: resolution ? Number(resolution[2]) : null,
+      bandwidth: info.BANDWIDTH ? Number(info.BANDWIDTH) : null,
+      codecs: info.CODECS ? info.CODECS.split(',').map((codec) => codec.trim()) : []
+    });
+  }
+  const segments = lines
+    .map((line, index) => ({ line, index }))
+    .filter(({ line, index }) => line && !line.startsWith('#') && !variantLines.has(index))
+    .map(({ line }) => new URL(line, url).toString());
+  return { variants, segments };
+}
+
+function assertPlaylist(body, label) {
+  if (!body.includes('#EXTM3U') || /^\s*<(!doctype|html)/i.test(body)) throw new Error(`${label} is not a valid manifest`);
+}
+
 export async function validateHls(url, { fetcher, segmentSampleCount = 2, useFfprobe = true, ffprobeRunner = ffprobeValidate } = {}) {
   const result = await fetcher(url, { method: 'GET' });
   const response = result.response || result;
   if (!response.ok) throw new Error(`HLS request failed: HTTP ${response.status}`);
   const body = await response.text();
-  if (!body.includes('#EXTM3U') || /^\s*<(!doctype|html)/i.test(body)) throw new Error('HLS response is not a valid manifest');
-  const lines = body.split(/\r?\n/).map((line) => line.trim());
-  const variants = [];
-  const segments = [];
-  for (let index = 0; index < lines.length; index += 1) {
-    const line = lines[index];
-    if (line.startsWith('#EXT-X-STREAM-INF:')) {
-      const variantUrl = lines.slice(index + 1).find((candidate) => candidate && !candidate.startsWith('#'));
-      if (variantUrl) {
-        const info = attributes(line.slice('#EXT-X-STREAM-INF:'.length));
-        const resolution = info.RESOLUTION?.match(/^(\d+)x(\d+)$/);
-        variants.push({
-          url: new URL(variantUrl, url).toString(),
-          width: resolution ? Number(resolution[1]) : null,
-          height: resolution ? Number(resolution[2]) : null,
-          bandwidth: info.BANDWIDTH ? Number(info.BANDWIDTH) : null,
-          codecs: info.CODECS ? info.CODECS.split(',').map((codec) => codec.trim()) : []
-        });
-      }
-    } else if (line && !line.startsWith('#')) segments.push(new URL(line, url).toString());
+  assertPlaylist(body, 'HLS response');
+  const parsed = parsePlaylist(body, url);
+  const variants = parsed.variants;
+  let segments = parsed.segments;
+  if (variants.length > 0) {
+    const variantResult = await fetcher(variants[0].url, { method: 'GET' });
+    const variantResponse = variantResult.response || variantResult;
+    if (!variantResponse.ok) throw new Error(`HLS variant request failed: HTTP ${variantResponse.status}`);
+    const variantBody = await variantResponse.text();
+    assertPlaylist(variantBody, 'HLS variant response');
+    segments = parsePlaylist(variantBody, variants[0].url).segments;
   }
   if (useFfprobe) {
     const outcome = await ffprobeRunner(url, [...variants.map((variant) => variant.url), ...segments]);
