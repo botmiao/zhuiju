@@ -1,8 +1,10 @@
+import { ffprobeValidate } from '../lib/ffprobe.mjs';
+
 function attributes(text) {
   return Object.fromEntries([...text.matchAll(/([A-Z0-9-]+)=((?:"[^"]*")|[^,]*)/g)].map((match) => [match[1], match[2].replace(/^"|"$/g, '')]));
 }
 
-export async function validateHls(url, { fetcher, segmentSampleCount = 2 } = {}) {
+export async function validateHls(url, { fetcher, segmentSampleCount = 2, useFfprobe = true, ffprobeRunner = ffprobeValidate } = {}) {
   const result = await fetcher(url, { method: 'GET' });
   const response = result.response || result;
   if (!response.ok) throw new Error(`HLS request failed: HTTP ${response.status}`);
@@ -27,6 +29,19 @@ export async function validateHls(url, { fetcher, segmentSampleCount = 2 } = {})
         });
       }
     } else if (line && !line.startsWith('#')) segments.push(new URL(line, url).toString());
+  }
+  if (useFfprobe) {
+    const outcome = await ffprobeRunner(url, [...variants.map((variant) => variant.url), ...segments]);
+    if (outcome.status === 'valid') {
+      return {
+        mediaType: variants.length ? 'hls-master' : 'hls-media',
+        validationLevel: 'decodable',
+        availability: 'playable',
+        variants,
+        segmentCount: segments.length
+      };
+    }
+    if (outcome.status === 'invalid') throw new Error(`ffprobe validation failed: ${outcome.reason}`);
   }
   const samples = segments.slice(0, Math.max(0, segmentSampleCount));
   for (const segment of samples) {

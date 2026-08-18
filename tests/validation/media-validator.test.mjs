@@ -33,11 +33,90 @@ test('validates an HLS master and samples a media segment', async (t) => {
     url: `${fixture.base}/master.m3u8`,
     observedFrom: { type: 'page', url: `${fixture.base}/page` },
     observationMethod: 'html-attribute'
-  }, { fetcher: (url, options) => fetch(url, { ...options, redirect: 'manual' }), segmentSampleCount: 1 });
+  }, { fetcher: (url, options) => fetch(url, { ...options, redirect: 'manual' }), segmentSampleCount: 1, ffprobeRunner: async () => ({ status: 'unavailable' }) });
   assert.equal(result.mediaType, 'hls-master');
   assert.equal(result.availability, 'playable');
   assert.equal(result.validationLevel, 'segment-valid');
   assert.equal(result.variants.length, 1);
+});
+
+test('uses ffprobe for HLS validation when available', async (t) => {
+  const fixture = await fixtureServer();
+  t.after(() => fixture.server.close());
+  let sampledRequests = 0;
+  let probedUrl = null;
+  const result = await validateMediaCandidate({
+    url: `${fixture.base}/master.m3u8`,
+    observedFrom: { type: 'page', url: `${fixture.base}/page` },
+    observationMethod: 'html-attribute'
+  }, {
+    fetcher: (url, options) => {
+      if (url.endsWith('/media.m3u8')) sampledRequests += 1;
+      return fetch(url, { ...options, redirect: 'manual' });
+    },
+    ffprobeRunner: async (url) => {
+      probedUrl = url;
+      return { status: 'valid' };
+    }
+  });
+  assert.equal(probedUrl, `${fixture.base}/master.m3u8`);
+  assert.equal(result.mediaType, 'hls-master');
+  assert.equal(result.validationLevel, 'decodable');
+  assert.equal(sampledRequests, 0);
+});
+
+test('falls back to segment sampling when ffprobe is unavailable', async (t) => {
+  const fixture = await fixtureServer();
+  t.after(() => fixture.server.close());
+  let runnerCalls = 0;
+  const result = await validateMediaCandidate({
+    url: `${fixture.base}/master.m3u8`,
+    observedFrom: { type: 'page', url: `${fixture.base}/page` }
+  }, {
+    fetcher: (url, options) => fetch(url, { ...options, redirect: 'manual' }),
+    segmentSampleCount: 1,
+    ffprobeRunner: async () => {
+      runnerCalls += 1;
+      return { status: 'unavailable' };
+    }
+  });
+  assert.equal(runnerCalls, 1);
+  assert.equal(result.validationLevel, 'segment-valid');
+});
+
+test('rejects an HLS candidate when ffprobe reports errors', async (t) => {
+  const fixture = await fixtureServer();
+  t.after(() => fixture.server.close());
+  await assert.rejects(
+    () => validateMediaCandidate({
+      url: `${fixture.base}/master.m3u8`,
+      observedFrom: { type: 'page', url: `${fixture.base}/page` }
+    }, {
+      fetcher: (url, options) => fetch(url, { ...options, redirect: 'manual' }),
+      ffprobeRunner: async () => ({ status: 'invalid', reason: 'HTTP error 404 Not Found' })
+    }),
+    /ffprobe/i
+  );
+});
+
+test('skips ffprobe validation when useFfprobe is false', async (t) => {
+  const fixture = await fixtureServer();
+  t.after(() => fixture.server.close());
+  let runnerCalls = 0;
+  const result = await validateMediaCandidate({
+    url: `${fixture.base}/master.m3u8`,
+    observedFrom: { type: 'page', url: `${fixture.base}/page` }
+  }, {
+    fetcher: (url, options) => fetch(url, { ...options, redirect: 'manual' }),
+    segmentSampleCount: 1,
+    useFfprobe: false,
+    ffprobeRunner: async () => {
+      runnerCalls += 1;
+      return { status: 'valid' };
+    }
+  });
+  assert.equal(runnerCalls, 0);
+  assert.equal(result.validationLevel, 'segment-valid');
 });
 
 test('validates an MP4 by a bounded range response', async (t) => {

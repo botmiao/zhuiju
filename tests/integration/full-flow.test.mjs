@@ -26,7 +26,7 @@ test('completes subscription, validation, persistence, and coalesced task flow',
   const episodes = createEpisodeStore(root);
   await episodes.ensure(subscription.id, 'main:2', { sequence: 2, displayNumber: '2', title: 'Episode 2' });
   assert.deepEqual(await episodes.missing(subscription.id), [2]);
-  const media = createMediaStore(root, { validator: (candidate) => validateMediaCandidate(candidate, { fetcher: (url, options) => fetch(url, { ...options, redirect: 'manual' }), segmentSampleCount: 1 }) });
+  const media = createMediaStore(root, { validator: (candidate) => validateMediaCandidate(candidate, { fetcher: (url, options) => fetch(url, { ...options, redirect: 'manual' }), segmentSampleCount: 1, ffprobeRunner: async () => ({ status: 'unavailable' }) }) });
   await media.submit(subscription.id, 'main:2', { url: `${fixture.base}/master.m3u8`, observedFrom: { type: 'page', url: `${fixture.base}/page` }, observationMethod: 'html-attribute' });
   assert.deepEqual(await episodes.missing(subscription.id), []);
   const first = await enqueueSubscriptionTask(root, { subscriptionId: subscription.id, mode: 'incremental', trigger: 'cron', reason: '18:25' });

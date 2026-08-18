@@ -8,7 +8,7 @@
 - Bootstrap、Incremental、Repair、Manual、Validate 任务模式。
 - 缺失集数、最新缺失集和 acquired 状态计算。
 - 原子写入、备份、文件租约、同订阅任务合并和全局并发槽位。
-- HLS、MP4、WebM、DASH 基础验证和有限 Range/分片采样。
+- HLS、MP4、WebM、DASH 基础验证和有限 Range/分片采样；宿主机有 ffprobe 时 HLS 升级为深度解码验证（`decodable`），无 ffprobe 自动回退采样。
 - URL 规范化、来源合并、失效历史保留和 Trace 脱敏。
 - 通用本地 Runtime 与 OpenClaw 能力适配接口。
 - OpenClaw/外部 Cron 只入队，不直接执行网页提取。
