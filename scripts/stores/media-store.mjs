@@ -5,6 +5,7 @@ import { episodePath } from '../lib/paths.mjs';
 import { assertSchema } from '../lib/schema.mjs';
 import { validateMediaCandidate } from '../validation/media-validator.mjs';
 import { createEpisodeStore } from './episode-store.mjs';
+import { createSubscriptionStore } from './subscription-store.mjs';
 
 const now = () => new Date().toISOString();
 
@@ -88,6 +89,7 @@ export function createMediaStore(root, { validator = validateMediaCandidate, min
       const nextEpisode = { ...episode, mediaUrls: validated, acquisitionStatus: validated.some((media) => isAcquirableMedia(media, minimumAcquiredLevel)) ? 'acquired' : 'failed', updatedAt: now() };
       assertSchema('episode', nextEpisode);
       await atomicWriteJson(episodePath(root, subscriptionId, episodeKey), nextEpisode);
+      if (nextEpisode.acquisitionStatus === 'failed') await createSubscriptionStore(root).releaseAcquired(subscriptionId, episode.sequence);
       return validated;
     },
     async history(mediaId) {

@@ -20,4 +20,4 @@ Repeated triggers are safe: cron only enqueues, duplicate triggers coalesce into
 
 ## Date-boundary and timezone traps
 
-"Sunday 24:00" belongs to Monday 00:00. When a slot crosses midnight, set the trigger time and `dayOfWeek` for the next day, and confirm the timezone with the user before writing `releaseSchedule.timezone`. `rule.officialReleaseTime` is informational only; `triggerTimes` is the authoritative trigger source.
+"Sunday 24:00" belongs to Monday 00:00. When a slot crosses midnight, set the trigger time and `dayOfWeek` for the next day, and confirm the timezone with the user before writing `releaseSchedule.timezone`. `triggerTimes` is the authoritative trigger source; the official time is recorded in notes when relevant.

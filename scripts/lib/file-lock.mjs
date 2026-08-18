@@ -6,7 +6,7 @@ function isProcessAlive(pid) {
   try { process.kill(pid, 0); return true; } catch { return false; }
 }
 
-function isStale(metadata, leaseTimeoutMs) {
+export function isStaleLease(metadata, leaseTimeoutMs = 30 * 60_000) {
   const heartbeat = Date.parse(metadata.heartbeatAt || metadata.createdAt || '');
   return !Number.isFinite(heartbeat) || Date.now() - heartbeat > leaseTimeoutMs && !isProcessAlive(metadata.pid);
 }
@@ -27,7 +27,7 @@ export async function acquireLease(filename, metadata = {}, { leaseTimeoutMs = 3
     if (error.code !== 'EEXIST') throw error;
     let current;
     try { current = JSON.parse(await fs.readFile(filename, 'utf8')); } catch { current = {}; }
-    if (!isStale(current, leaseTimeoutMs)) {
+    if (!isStaleLease(current, leaseTimeoutMs)) {
       const busy = new Error(`Lease is active: ${filename}`);
       busy.code = 'LOCKED';
       throw busy;
@@ -45,7 +45,9 @@ export async function acquireLease(filename, metadata = {}, { leaseTimeoutMs = 3
     async heartbeat(extra = {}) {
       if (released) return;
       const next = { ...payload, ...extra, heartbeatAt: new Date().toISOString() };
-      await fs.writeFile(filename, `${JSON.stringify(next)}\n`, 'utf8');
+      const temporary = `${filename}.tmp-${process.pid}`;
+      await fs.writeFile(temporary, `${JSON.stringify(next)}\n`, 'utf8');
+      await fs.rename(temporary, filename);
       Object.assign(payload, next);
     },
     async release() {

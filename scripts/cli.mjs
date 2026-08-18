@@ -49,6 +49,8 @@ async function runCommand(argv, root) {
   const options = flags(rest);
   if (!group || group === 'help' || group === '--help' || group === '-h') return ok({ usage: usageFor() });
   if (action === 'help' || action === '--help' || options.help === true) return ok({ usage: usageFor(group) });
+  if (group === 'doctor') return ok(await runDoctor(root));
+  if (group === 'migrate') return ok(await runMigrations(root));
   const config = await loadConfig(root);
   const subscriptions = createSubscriptionStore(root);
   const episodes = createEpisodeStore(root, { minimumAcquiredLevel: config.validation.minimumAcquiredLevel });
@@ -113,8 +115,6 @@ async function runCommand(argv, root) {
     if (action === 'show') return ok(await createScheduleStore(root).get(subscriptionId));
     if (action === 'remove') return ok(await createScheduleStore(root).remove(subscriptionId));
   }
-  if (group === 'doctor') return ok(await runDoctor(root));
-  if (group === 'migrate') return ok(await runMigrations(root));
   return fail('UNKNOWN_COMMAND', `Unknown command: ${argv.join(' ')}`);
 }
 

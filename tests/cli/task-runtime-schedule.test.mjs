@@ -59,6 +59,23 @@ test('CLI exposes help for the overview and each command group', async () => {
   assert.match(task.data.usage, /task heartbeat/);
 });
 
+test('doctor reports config, ffprobe, and stale lease health', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'zhuiju-cli-doctor-'));
+  await fs.writeFile(path.join(root, 'config.json'), '{nope');
+  const broken = await execute(['doctor'], root);
+  assert.equal(broken.data.checks.find((check) => check.name === 'config').ok, false);
+  await fs.rm(path.join(root, 'config.json'));
+  const lockDir = path.join(root, 'locks', 'subscriptions');
+  await fs.mkdir(lockDir, { recursive: true });
+  await fs.writeFile(path.join(lockDir, 'sub_stale.lock'), JSON.stringify({ subscriptionId: 'sub_stale', taskId: 'task_stale', pid: 999999999, createdAt: '2020-01-01T00:00:00.000Z', heartbeatAt: '2020-01-01T00:00:00.000Z' }));
+  const result = await execute(['doctor'], root);
+  assert.equal(result.ok, true);
+  const staleCheck = result.data.checks.find((check) => check.name === 'stale-locks');
+  assert.deepEqual(staleCheck.stale, ['sub_stale']);
+  const ffprobeCheck = result.data.checks.find((check) => check.name === 'ffprobe');
+  assert.equal(typeof ffprobeCheck.available, 'boolean');
+});
+
 test('task run failure marks the task failed and settles the queue', async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'zhuiju-cli-task-'));
   const input = path.join(root, 'sub.json');

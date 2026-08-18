@@ -3,7 +3,7 @@ import path from 'node:path';
 import { atomicWriteJson, readJsonFile } from '../lib/atomic-file.mjs';
 import { createId } from '../lib/ids.mjs';
 import { subscriptionPaths } from '../lib/paths.mjs';
-import { normalizeRanges } from '../lib/range-set.mjs';
+import { normalizeRanges, subtractRanges } from '../lib/range-set.mjs';
 import { assertSchema } from '../lib/schema.mjs';
 
 const now = () => new Date().toISOString();
@@ -37,7 +37,7 @@ function defaultSubscription(input) {
     },
     releaseSchedule: input.releaseSchedule || {
       timezone: 'UTC',
-      rule: { frequency: 'weekly', dayOfWeek: null, officialReleaseTime: null },
+      rule: { dayOfWeek: null },
       triggerTimes: []
     },
     sourcePolicy: input.sourcePolicy || {
@@ -77,16 +77,17 @@ export function createSubscriptionStore(root) {
       return values.sort((a, b) => a.title.localeCompare(b.title));
     },
     async update(id, patch) {
+      const { id: _ignoredId, createdAt: _ignoredCreatedAt, schemaVersion: _ignoredSchemaVersion, ...safePatch } = patch || {};
       const current = await this.get(id);
       const next = {
         ...current,
-        ...patch,
-        episodeProgress: patch.episodeProgress ? {
+        ...safePatch,
+        episodeProgress: safePatch.episodeProgress ? {
           ...current.episodeProgress,
-          ...patch.episodeProgress,
-          releaseCatalog: patch.episodeProgress.releaseCatalog ? {
+          ...safePatch.episodeProgress,
+          releaseCatalog: safePatch.episodeProgress.releaseCatalog ? {
             ...current.episodeProgress.releaseCatalog,
-            ...patch.episodeProgress.releaseCatalog
+            ...safePatch.episodeProgress.releaseCatalog
           } : current.episodeProgress.releaseCatalog
         } : current.episodeProgress,
         updatedAt: now()
@@ -96,6 +97,13 @@ export function createSubscriptionStore(root) {
       assertSchema('subscription', next);
       await atomicWriteJson(subscriptionPaths(root, id).subscription, next);
       return next;
+    },
+    async releaseAcquired(id, sequence) {
+      const current = await this.get(id);
+      const acquiredRanges = Number.isInteger(sequence)
+        ? subtractRanges(current.episodeProgress.acquiredRanges, [{ from: sequence, to: sequence }])
+        : current.episodeProgress.acquiredRanges;
+      return this.update(id, { episodeProgress: { acquiredRanges } });
     },
     pause(id) { return this.update(id, { status: 'paused', enabled: false }); },
     resume(id, status = 'airing') { return this.update(id, { status, enabled: true }); },
