@@ -20,7 +20,9 @@ test('covers the documented CLI command surface in an isolated data root', async
   assert.equal((await execute(['episode', 'list', id], root)).ok, true);
   assert.equal((await execute(['episode', 'missing', id], root)).ok, true);
   assert.equal((await execute(['episode', 'latest-missing', id], root)).ok, true);
-  await assert.rejects(() => execute(['episode', 'mark-acquired', id, 'main:1'], root), /Media URL|validated/i);
+  const marked = await execute(['episode', 'mark-acquired', id, 'main:1'], root);
+  assert.equal(marked.ok, false);
+  assert.equal(marked.code, 'MEDIA_NOT_VALIDATED');
   assert.equal((await execute(['media', 'list', id, 'main:1'], root)).ok, true);
   assert.equal((await execute(['media', 'validate', id, 'main:1'], root)).ok, true);
   assert.equal((await execute(['media', 'history', 'media_missing'], root)).ok, true);

@@ -8,12 +8,22 @@ import { createMediaStore } from './stores/media-store.mjs';
 import { createTaskStore } from './stores/task-store.mjs';
 import { createScheduleStore } from './stores/schedule-store.mjs';
 import { enqueueSubscriptionTask, readQueueStatus } from './tasks/queue-manager.mjs';
-import { runSubscriptionTask, completeSubscriptionTask, updateTaskStatus } from './tasks/task-controller.mjs';
+import { updateTaskStatus, heartbeatSubscriptionTask } from './tasks/task-controller.mjs';
+import { prepareSubscriptionRun, finishSubscriptionRun, failSubscriptionRun } from './tasks/subscription-runner.mjs';
+import { appendObservation } from './tasks/trace-store.mjs';
 import { validateMediaCandidate } from './validation/media-validator.mjs';
 import { detectCapabilities } from './runtime/runtime-detect.mjs';
 import { syncSchedule } from './runtime/schedule-sync.mjs';
+import { OpenClawRuntimeAdapter } from './runtime/openclaw-runtime.mjs';
+import { GenericLocalRuntimeAdapter } from './runtime/generic-runtime.mjs';
 import { runDoctor } from './system/doctor.mjs';
 import { runMigrations } from './system/migrations.mjs';
+
+function runtimeAdapter(env = process.env) {
+  return env.ZHUIJU_RUNTIME === 'openclaw' || env.OPENCLAW_RUNTIME || env.OPENCLAW_HOME
+    ? new OpenClawRuntimeAdapter({})
+    : new GenericLocalRuntimeAdapter({});
+}
 
 function flags(args) {
   const result = {};
@@ -30,7 +40,7 @@ async function inputFile(filename) {
   return JSON.parse(await fs.readFile(filename, 'utf8'));
 }
 
-async function execute(argv, root = resolveDataRoot()) {
+async function runCommand(argv, root) {
   const [group, action, ...rest] = argv;
   const options = flags(rest);
   const config = await loadConfig(root);
@@ -71,8 +81,21 @@ async function execute(argv, root = resolveDataRoot()) {
     const subscriptionId = options.subscription || options._?.[0];
     if (action === 'enqueue') return ok(await enqueueSubscriptionTask(root, { subscriptionId, mode: options.mode || 'incremental', trigger: options.trigger || 'manual', reason: options.reason || options.trigger || 'manual' }));
     if (action === 'status') return ok(await createTaskStore(root).get(subscriptionId));
-    if (action === 'run') return ok(await runSubscriptionTask(root, subscriptionId, { maximumActiveSubscriptions: Number(options.maximumActiveSubscriptions || config.concurrency.maximumActiveSubscriptions) }));
-    if (action === 'complete') return ok(await completeSubscriptionTask(root, subscriptionId, { source: 'cli' }));
+    if (action === 'run') {
+      try {
+        return ok(await prepareSubscriptionRun(root, subscriptionId, { maximumActiveSubscriptions: Number(options.maximumActiveSubscriptions || config.concurrency.maximumActiveSubscriptions) }));
+      } catch (error) {
+        await failSubscriptionRun(root, subscriptionId, error).catch(() => {});
+        throw error;
+      }
+    }
+    if (action === 'complete') return ok(await finishSubscriptionRun(root, subscriptionId, { source: 'cli' }));
+    if (action === 'heartbeat') return ok(await heartbeatSubscriptionTask(root, subscriptionId));
+    if (action === 'fail') return ok(await failSubscriptionRun(root, subscriptionId, { code: 'TASK_FAILED', message: options.message || 'task failed' }));
+    if (action === 'observe') {
+      const task = await createTaskStore(root).get(subscriptionId);
+      return ok(await appendObservation(root, subscriptionId, task.id, await inputFile(options.input)));
+    }
     if (['pause', 'resume', 'cancel'].includes(action)) return ok(await updateTaskStatus(root, subscriptionId, action === 'resume' ? 'queued' : action === 'pause' ? 'paused' : 'cancelled'));
     if (action === 'context') return ok({ task: await createTaskStore(root).get(subscriptionId), subscription: await subscriptions.get(subscriptionId), episodes: await episodes.list(subscriptionId) });
   }
@@ -80,7 +103,7 @@ async function execute(argv, root = resolveDataRoot()) {
   if (group === 'runtime' && action === 'detect') return ok(await detectCapabilities());
   if (group === 'schedule') {
     const subscriptionId = options._?.[0] || options.subscription;
-    if (action === 'sync') return ok(await syncSchedule(root, subscriptionId));
+    if (action === 'sync') return ok(await syncSchedule(root, subscriptionId, runtimeAdapter()));
     if (action === 'show') return ok(await createScheduleStore(root).get(subscriptionId));
     if (action === 'remove') return ok(await createScheduleStore(root).remove(subscriptionId));
   }
@@ -89,15 +112,17 @@ async function execute(argv, root = resolveDataRoot()) {
   return fail('UNKNOWN_COMMAND', `Unknown command: ${argv.join(' ')}`);
 }
 
+export async function execute(argv, root = resolveDataRoot()) {
+  try {
+    return await runCommand(argv, root);
+  } catch (error) {
+    return fail(error.code || 'COMMAND_FAILED', error.message, Boolean(error.retryable));
+  }
+}
+
 if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1].replaceAll('\\', '/')}`).href) {
   execute(process.argv.slice(2)).then((result) => {
     process.stdout.write(`${JSON.stringify(result)}\n`);
     if (!result.ok) process.exitCode = 1;
-  }).catch((error) => {
-    const result = fail(error.code || 'COMMAND_FAILED', error.message, Boolean(error.retryable));
-    process.stdout.write(`${JSON.stringify(result)}\n`);
-    process.exitCode = 1;
   });
 }
-
-export { execute };

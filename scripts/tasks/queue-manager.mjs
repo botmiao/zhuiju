@@ -30,7 +30,7 @@ export async function enqueueSubscriptionTask(root, input) {
     trigger: input.trigger || 'manual',
     createdAt: new Date().toISOString(),
     reasons: task.reasons,
-    status: coalesced ? 'pending' : 'pending'
+    status: 'pending'
   };
   assertSchema('queue-item', queueItem);
   if (!coalesced) await createQueueStore(root).appendPending(queueItem);

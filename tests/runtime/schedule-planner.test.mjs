@@ -17,3 +17,7 @@ test('plans rescheduled releases as one-time enqueue triggers and keeps skip dat
   assert.deepEqual(plan.suppressed, ['2026-08-09']);
   assert.equal(plan.oneTimeTriggers[0].episodeKey, 'main:2');
 });
+
+test('cron invocation uses absolute interpreter and script paths', () => {
+  assert.match(buildCronInvocation('sub_test', 'incremental'), /^".+" ".+cli\.mjs" task enqueue --subscription sub_test --mode incremental --trigger cron$/);
+});

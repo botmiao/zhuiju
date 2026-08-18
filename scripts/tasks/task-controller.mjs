@@ -1,10 +1,12 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { acquireLease } from '../lib/file-lock.mjs';
+import { createId } from '../lib/ids.mjs';
 import { atomicWriteJson } from '../lib/atomic-file.mjs';
 import { subscriptionPaths } from '../lib/paths.mjs';
 import { transitionTask } from './task-policy.mjs';
 import { createTaskStore } from '../stores/task-store.mjs';
+import { createQueueStore } from '../stores/queue-store.mjs';
 
 async function acquireGlobalSlot(root, task, maximumActiveSubscriptions) {
   const directory = path.join(root, 'locks', 'global-slots');
@@ -35,6 +37,24 @@ async function releaseOwnedLocks(root, subscriptionId, taskId) {
   }
 }
 
+async function settleQueue(root, task, status) {
+  const queue = createQueueStore(root);
+  const pending = await queue.pending();
+  const item = pending.find((entry) => entry.taskId === task.id) || {
+    schemaVersion: 1,
+    id: createId('queue'),
+    taskId: task.id,
+    subscriptionId: task.subscriptionId,
+    mode: task.mode,
+    trigger: task.trigger,
+    createdAt: new Date().toISOString(),
+    reasons: task.reasons || [],
+    status: 'pending'
+  };
+  await queue.appendCompleted({ ...item, status });
+  await queue.removePendingByTaskId(task.id);
+}
+
 export async function runSubscriptionTask(root, subscriptionId, { maximumActiveSubscriptions = 2 } = {}) {
   const taskStore = createTaskStore(root);
   const task = await taskStore.get(subscriptionId);
@@ -55,6 +75,14 @@ export async function heartbeatSubscriptionTask(root, subscriptionId) {
   const taskStore = createTaskStore(root);
   const task = transitionTask(await taskStore.get(subscriptionId), {});
   await taskStore.save(task);
+  const leaseFile = path.join(root, 'locks', 'subscriptions', `${subscriptionId}.lock`);
+  try {
+    const metadata = JSON.parse(await fs.readFile(leaseFile, 'utf8'));
+    const next = { ...metadata, heartbeatAt: new Date().toISOString() };
+    const temporary = `${leaseFile}.tmp-${process.pid}`;
+    await fs.writeFile(temporary, `${JSON.stringify(next)}\n`, 'utf8');
+    await fs.rename(temporary, leaseFile);
+  } catch (error) { if (error.code !== 'ENOENT') throw error; }
   return task;
 }
 
@@ -63,6 +91,7 @@ export async function completeSubscriptionTask(root, subscriptionId, result = {}
   const task = transitionTask(await taskStore.get(subscriptionId), { status: 'completed', phase: 'idle', lastError: null, result });
   await taskStore.save(task);
   await releaseOwnedLocks(root, subscriptionId, task.id);
+  await settleQueue(root, task, 'completed');
   return task;
 }
 
@@ -71,6 +100,7 @@ export async function failSubscriptionTask(root, subscriptionId, error) {
   const task = transitionTask(await taskStore.get(subscriptionId), { status: 'failed', phase: 'idle', lastError: { code: error.code || 'TASK_FAILED', message: error.message, retryable: Boolean(error.retryable) } });
   await taskStore.save(task);
   await releaseOwnedLocks(root, subscriptionId, task.id);
+  await settleQueue(root, task, 'failed');
   return task;
 }
 
@@ -79,5 +109,6 @@ export async function updateTaskStatus(root, subscriptionId, status) {
   const task = transitionTask(await taskStore.get(subscriptionId), { status, phase: status === 'running' ? 'searching' : 'idle' });
   await taskStore.save(task);
   if (['paused', 'cancelled'].includes(status)) await releaseOwnedLocks(root, subscriptionId, task.id);
+  if (status === 'cancelled') await settleQueue(root, task, 'cancelled');
   return task;
 }

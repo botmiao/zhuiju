@@ -1,3 +1,7 @@
+import { fileURLToPath } from 'node:url';
+
+const cliPath = fileURLToPath(new URL('../cli.mjs', import.meta.url));
+
 export function planSchedule(subscription) {
   const schedule = subscription.releaseSchedule || {};
   const exceptions = subscription.exceptions || [];
@@ -17,5 +21,5 @@ export function planSchedule(subscription) {
 }
 
 export function buildCronInvocation(subscriptionId, mode = 'incremental') {
-  return `node scripts/cli.mjs task enqueue --subscription ${subscriptionId} --mode ${mode} --trigger cron`;
+  return `"${process.execPath}" "${cliPath}" task enqueue --subscription ${subscriptionId} --mode ${mode} --trigger cron`;
 }
