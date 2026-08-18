@@ -45,6 +45,20 @@ test('task lifecycle exposes heartbeat, observations, and truthful queue status'
   assert.ok(types.includes('task-completed'));
 });
 
+test('CLI exposes help for the overview and each command group', async () => {
+  const root = await fs.mkdtemp(path.join(os.tmpdir(), 'zhuiju-cli-help-'));
+  const overview = await execute(['--help'], root);
+  assert.equal(overview.ok, true);
+  assert.match(overview.data.usage, /task enqueue/);
+  assert.match(overview.data.usage, /media submit/);
+  const media = await execute(['media', '--help'], root);
+  assert.equal(media.ok, true);
+  assert.match(media.data.usage, /media submit/);
+  const task = await execute(['task', 'run', '--help'], root);
+  assert.equal(task.ok, true);
+  assert.match(task.data.usage, /task heartbeat/);
+});
+
 test('task run failure marks the task failed and settles the queue', async () => {
   const root = await fs.mkdtemp(path.join(os.tmpdir(), 'zhuiju-cli-task-'));
   const input = path.join(root, 'sub.json');

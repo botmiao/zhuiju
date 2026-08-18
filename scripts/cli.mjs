@@ -18,6 +18,7 @@ import { OpenClawRuntimeAdapter } from './runtime/openclaw-runtime.mjs';
 import { GenericLocalRuntimeAdapter } from './runtime/generic-runtime.mjs';
 import { runDoctor } from './system/doctor.mjs';
 import { runMigrations } from './system/migrations.mjs';
+import { usageFor } from './system/usage.mjs';
 
 function runtimeAdapter(env = process.env) {
   return env.ZHUIJU_RUNTIME === 'openclaw' || env.OPENCLAW_RUNTIME || env.OPENCLAW_HOME
@@ -29,8 +30,11 @@ function flags(args) {
   const result = {};
   for (let index = 0; index < args.length; index += 1) {
     const token = args[index];
-    if (token.startsWith('--')) result[token.slice(2)] = args[index + 1]?.startsWith('--') ? true : args[++index];
-    else (result._ ||= []).push(token);
+    if (token.startsWith('--')) {
+      const next = args[index + 1];
+      if (next === undefined || next.startsWith('--')) result[token.slice(2)] = true;
+      else { result[token.slice(2)] = next; index += 1; }
+    } else (result._ ||= []).push(token);
   }
   return result;
 }
@@ -43,6 +47,8 @@ async function inputFile(filename) {
 async function runCommand(argv, root) {
   const [group, action, ...rest] = argv;
   const options = flags(rest);
+  if (!group || group === 'help' || group === '--help' || group === '-h') return ok({ usage: usageFor() });
+  if (action === 'help' || action === '--help' || options.help === true) return ok({ usage: usageFor(group) });
   const config = await loadConfig(root);
   const subscriptions = createSubscriptionStore(root);
   const episodes = createEpisodeStore(root, { minimumAcquiredLevel: config.validation.minimumAcquiredLevel });
@@ -56,7 +62,7 @@ async function runCommand(argv, root) {
     if (action === 'list') return ok(await subscriptions.list());
     if (action === 'update') return ok(await subscriptions.update(options._?.[0], await inputFile(options.input)));
     if (action === 'pause') return ok(await subscriptions.pause(options._?.[0]));
-    if (action === 'resume') return ok(await subscriptions.resume(options._?.[0]));
+    if (action === 'resume') return ok(await subscriptions.resume(options._?.[0], options.status || 'airing'));
     if (action === 'remove') return ok(await subscriptions.remove(options._?.[0]));
   }
   if (group === 'episode') {

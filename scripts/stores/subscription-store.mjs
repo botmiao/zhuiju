@@ -98,7 +98,7 @@ export function createSubscriptionStore(root) {
       return next;
     },
     pause(id) { return this.update(id, { status: 'paused', enabled: false }); },
-    resume(id) { return this.update(id, { status: 'airing', enabled: true }); },
+    resume(id, status = 'airing') { return this.update(id, { status, enabled: true }); },
     async remove(id) {
       await fs.rm(subscriptionPaths(root, id).base, { recursive: true, force: true });
       return { id, removed: true };

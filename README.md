@@ -22,12 +22,20 @@ npm install
 npm test
 ```
 
-运行数据不会写入安装目录。可通过 `ZHUIJU_HOME` 指定数据根目录；Windows 默认使用 `%LOCALAPPDATA%\zhuiju`，Linux 默认使用 `~/.local/share/zhuiju`，macOS 默认使用 `~/Library/Application Support/zhuiju`。
+运行数据不会写入安装目录。数据根目录默认为 `~/.zhuiju`（所有平台一致），可通过 `ZHUIJU_HOME` 指定其他位置。
+
+可选的 `config.json` 放在数据根目录下，用于覆盖默认行为（未写的字段自动取默认值），结构见 `schemas/config.schema.json`：
+
+```json
+{
+  "validation": { "minimumAcquiredLevel": "http-valid", "segmentSampleCount": 2, "useFfprobe": true }
+}
+```
 
 ## 基本 CLI
 
-```powershell
-$env:ZHUIJU_HOME = "C:\data\zhuiju"
+```text
+node scripts/cli.mjs --help
 node scripts/cli.mjs subscription add --input subscription.json
 node scripts/cli.mjs subscription list
 node scripts/cli.mjs episode missing <subscription-id>
@@ -38,11 +46,8 @@ node scripts/cli.mjs doctor
 
 提交实际观察到的媒体地址：
 
-```powershell
-node scripts/cli.mjs media submit `
-  --subscription <subscription-id> `
-  --episode main:124 `
-  --input candidate.json
+```text
+node scripts/cli.mjs media submit --subscription <subscription-id> --episode main:124 --input candidate.json
 ```
 
 CLI 输出统一 JSON。LLM 不能直接修改主数据文件；候选必须经过 Schema、SSRF、规范化和确定性验证。`acquired` 只在媒体地址可用且达到最低验证级别时设置。

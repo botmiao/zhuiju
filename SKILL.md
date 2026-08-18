@@ -30,7 +30,7 @@ description: 用于用户要求订阅、监控、补齐、验证或查找动漫�
 2. 读取订阅、当前任务、发布目录、例外规则、已知来源和之前的 Trace。
 3. 选择一个模式：`bootstrap`、`incremental`、`repair`、`manual` 或 `validate`。
 4. 遵守时长、页面、浏览器导航和候选 URL 预算。
-5. 通过任务 Trace 接口记录有意义的观测结果。
+5. 通过 `task observe` 记录有意义的观测结果。
 
 复杂工作前，先阅读相关参考资料：
 
@@ -70,13 +70,10 @@ description: 用于用户要求订阅、监控、补齐、验证或查找动漫�
 }
 ```
 
-只能通过以下命令提交：
+只能通过以下命令提交（单行执行，避免跨 shell 的续行符差异）：
 
-```powershell
-node scripts/cli.mjs media submit `
-  --subscription <subscription-id> `
-  --episode <episode-key> `
-  --input candidate.json
+```text
+node scripts/cli.mjs media submit --subscription <subscription-id> --episode <episode-key> --input candidate.json
 ```
 
 CLI 会执行 Schema 校验、SSRF 检查、URL 规范化、有界媒体验证、来源合并和原子持久化。提交失败时不得将 Episode 标记为已获取。
@@ -104,9 +101,12 @@ media history <media-id>
 task enqueue --subscription <id> --mode incremental --trigger cron
 task run <subscription>
 task status <subscription>
+task heartbeat <subscription>
+task observe <subscription> --input observation.json
 task pause <subscription>
 task resume <subscription>
 task cancel <subscription>
+task fail <subscription> --message <text>
 task complete <subscription>
 task context <subscription>
 schedule sync <subscription>
@@ -118,7 +118,7 @@ doctor
 migrate
 ```
 
-每条命令都会输出包含 `ok`、`code`、`message`、`retryable`、`data` 和 `warnings` 的 JSON。应根据这些字段决定下一步，不要解析终端输出中的叙述性文字。
+每条命令都会输出包含 `ok`、`code`、`message`、`retryable`、`data` 和 `warnings` 的 JSON。应根据这些字段决定下一步，不要解析终端输出中的叙述性文字。命令的准确参数可用 `node scripts/cli.mjs <group> --help` 查询。
 
 ## 任务与并发规则
 

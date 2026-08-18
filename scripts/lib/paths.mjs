@@ -1,13 +1,9 @@
 import os from 'node:os';
 import path from 'node:path';
 
-export function resolveDataRoot(env = process.env, platform = process.platform) {
+export function resolveDataRoot(env = process.env) {
   if (env.ZHUIJU_HOME) return path.resolve(env.ZHUIJU_HOME);
-  if (platform === 'win32') {
-    return path.join(env.LOCALAPPDATA || path.join(os.homedir(), 'AppData', 'Local'), 'zhuiju');
-  }
-  if (platform === 'darwin') return path.join(os.homedir(), 'Library', 'Application Support', 'zhuiju');
-  return path.join(env.XDG_DATA_HOME || path.join(os.homedir(), '.local', 'share'), 'zhuiju');
+  return path.join(os.homedir(), '.zhuiju');
 }
 
 export function dataPaths(root) {
