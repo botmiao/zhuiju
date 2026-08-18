@@ -1,6 +1,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { atomicWriteJson, readJsonFile } from '../lib/atomic-file.mjs';
+import { isAcquirableMedia } from '../lib/acquisition-policy.mjs';
 import { episodePath, subscriptionPaths } from '../lib/paths.mjs';
 import { expandRanges, normalizeRanges, subtractRanges } from '../lib/range-set.mjs';
 import { assertSchema } from '../lib/schema.mjs';
@@ -29,7 +30,7 @@ function defaultEpisode(episodeKey, input = {}) {
   };
 }
 
-export function createEpisodeStore(root) {
+export function createEpisodeStore(root, { minimumAcquiredLevel = 'http-valid' } = {}) {
   return {
     async ensure(subscriptionId, episodeKey, input = {}) {
       const location = episodePath(root, subscriptionId, episodeKey);
@@ -60,9 +61,7 @@ export function createEpisodeStore(root) {
     async markAcquired(subscriptionId, episodeKey) {
       const episode = await this.get(subscriptionId, episodeKey);
       const sequence = episode.sequence;
-      const levels = ['discovered', 'http-valid', 'manifest-valid', 'playlist-valid', 'segment-valid', 'decodable'];
-      const minimumLevel = 'segment-valid';
-      const usable = episode.mediaUrls.some((media) => media.availability === 'playable' && media.accessRequirement === 'none' && media.lifetimeState !== 'expired' && levels.indexOf(media.validationLevel) >= levels.indexOf(minimumLevel));
+      const usable = episode.mediaUrls.some((media) => isAcquirableMedia(media, minimumAcquiredLevel));
       if (!usable) {
         const error = new Error('Episode has no Media URL at the minimum acquired validation level');
         error.code = 'MEDIA_NOT_VALIDATED';

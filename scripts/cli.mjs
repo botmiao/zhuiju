@@ -1,5 +1,6 @@
 import fs from 'node:fs/promises';
 import { resolveDataRoot } from './lib/paths.mjs';
+import { loadConfig } from './lib/config.mjs';
 import { fail, ok } from './lib/result.mjs';
 import { createSubscriptionStore } from './stores/subscription-store.mjs';
 import { createEpisodeStore } from './stores/episode-store.mjs';
@@ -8,6 +9,7 @@ import { createTaskStore } from './stores/task-store.mjs';
 import { createScheduleStore } from './stores/schedule-store.mjs';
 import { enqueueSubscriptionTask, readQueueStatus } from './tasks/queue-manager.mjs';
 import { runSubscriptionTask, completeSubscriptionTask, updateTaskStatus } from './tasks/task-controller.mjs';
+import { validateMediaCandidate } from './validation/media-validator.mjs';
 import { detectCapabilities } from './runtime/runtime-detect.mjs';
 import { syncSchedule } from './runtime/schedule-sync.mjs';
 import { runDoctor } from './system/doctor.mjs';
@@ -31,9 +33,13 @@ async function inputFile(filename) {
 async function execute(argv, root = resolveDataRoot()) {
   const [group, action, ...rest] = argv;
   const options = flags(rest);
+  const config = await loadConfig(root);
   const subscriptions = createSubscriptionStore(root);
-  const episodes = createEpisodeStore(root);
-  const media = createMediaStore(root);
+  const episodes = createEpisodeStore(root, { minimumAcquiredLevel: config.validation.minimumAcquiredLevel });
+  const media = createMediaStore(root, {
+    minimumAcquiredLevel: config.validation.minimumAcquiredLevel,
+    validator: (candidate) => validateMediaCandidate(candidate, { segmentSampleCount: config.validation.segmentSampleCount, useFfprobe: config.validation.useFfprobe })
+  });
   if (group === 'subscription') {
     if (action === 'add') return ok(await subscriptions.add(await inputFile(options.input)));
     if (action === 'get') return ok(await subscriptions.get(options._?.[0]));
@@ -65,7 +71,7 @@ async function execute(argv, root = resolveDataRoot()) {
     const subscriptionId = options.subscription || options._?.[0];
     if (action === 'enqueue') return ok(await enqueueSubscriptionTask(root, { subscriptionId, mode: options.mode || 'incremental', trigger: options.trigger || 'manual', reason: options.reason || options.trigger || 'manual' }));
     if (action === 'status') return ok(await createTaskStore(root).get(subscriptionId));
-    if (action === 'run') return ok(await runSubscriptionTask(root, subscriptionId, { maximumActiveSubscriptions: Number(options.maximumActiveSubscriptions || 2) }));
+    if (action === 'run') return ok(await runSubscriptionTask(root, subscriptionId, { maximumActiveSubscriptions: Number(options.maximumActiveSubscriptions || config.concurrency.maximumActiveSubscriptions) }));
     if (action === 'complete') return ok(await completeSubscriptionTask(root, subscriptionId, { source: 'cli' }));
     if (['pause', 'resume', 'cancel'].includes(action)) return ok(await updateTaskStatus(root, subscriptionId, action === 'resume' ? 'queued' : action === 'pause' ? 'paused' : 'cancelled'));
     if (action === 'context') return ok({ task: await createTaskStore(root).get(subscriptionId), subscription: await subscriptions.get(subscriptionId), episodes: await episodes.list(subscriptionId) });

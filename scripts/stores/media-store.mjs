@@ -1,4 +1,5 @@
 import { atomicWriteJson } from '../lib/atomic-file.mjs';
+import { isAcquirableMedia } from '../lib/acquisition-policy.mjs';
 import { createId } from '../lib/ids.mjs';
 import { episodePath } from '../lib/paths.mjs';
 import { assertSchema } from '../lib/schema.mjs';
@@ -16,11 +17,6 @@ function mergeProvenance(existing, incoming) {
     else values.push({ ...item });
   }
   return values;
-}
-
-function isAcquirable(media, minimumLevel = 'segment-valid') {
-  const levels = ['discovered', 'http-valid', 'manifest-valid', 'playlist-valid', 'segment-valid', 'decodable'];
-  return media.availability === 'playable' && media.accessRequirement === 'none' && media.lifetimeState !== 'expired' && levels.indexOf(media.validationLevel) >= levels.indexOf(minimumLevel);
 }
 
 function withMediaId(media, id) {
@@ -47,8 +43,8 @@ function withMediaId(media, id) {
   };
 }
 
-export function createMediaStore(root, { validator = validateMediaCandidate, minimumAcquiredLevel = 'segment-valid' } = {}) {
-  const episodes = createEpisodeStore(root);
+export function createMediaStore(root, { validator = validateMediaCandidate, minimumAcquiredLevel = 'http-valid' } = {}) {
+  const episodes = createEpisodeStore(root, { minimumAcquiredLevel });
   return {
     async submit(subscriptionId, episodeKey, candidate) {
       const episode = await episodes.get(subscriptionId, episodeKey);
@@ -71,10 +67,10 @@ export function createMediaStore(root, { validator = validateMediaCandidate, min
         provenance: mergeProvenance(existing.provenance, nextMedia.provenance)
       } : nextMedia;
       assertSchema('media-url', merged);
-      const nextEpisode = { ...episode, mediaUrls: [...episode.mediaUrls.filter((media) => media.id !== existing?.id), merged], acquisitionStatus: isAcquirable(merged, minimumAcquiredLevel) ? 'acquired' : episode.acquisitionStatus, updatedAt: now() };
+      const nextEpisode = { ...episode, mediaUrls: [...episode.mediaUrls.filter((media) => media.id !== existing?.id), merged], acquisitionStatus: isAcquirableMedia(merged, minimumAcquiredLevel) ? 'acquired' : episode.acquisitionStatus, updatedAt: now() };
       assertSchema('episode', nextEpisode);
       await atomicWriteJson(episodePath(root, subscriptionId, episodeKey), nextEpisode);
-      if (isAcquirable(merged, minimumAcquiredLevel)) await episodes.markAcquired(subscriptionId, episodeKey);
+      if (isAcquirableMedia(merged, minimumAcquiredLevel)) await episodes.markAcquired(subscriptionId, episodeKey);
       return merged;
     },
     async list(subscriptionId, episodeKey) { return (await episodes.get(subscriptionId, episodeKey)).mediaUrls; },
@@ -89,7 +85,7 @@ export function createMediaStore(root, { validator = validateMediaCandidate, min
           validated.push({ ...media, availability: 'invalid', lifetimeState: 'possibly-expired', lastValidatedAt: now(), note: error.message });
         }
       }
-      const nextEpisode = { ...episode, mediaUrls: validated, acquisitionStatus: validated.some((media) => isAcquirable(media, minimumAcquiredLevel)) ? 'acquired' : 'failed', updatedAt: now() };
+      const nextEpisode = { ...episode, mediaUrls: validated, acquisitionStatus: validated.some((media) => isAcquirableMedia(media, minimumAcquiredLevel)) ? 'acquired' : 'failed', updatedAt: now() };
       assertSchema('episode', nextEpisode);
       await atomicWriteJson(episodePath(root, subscriptionId, episodeKey), nextEpisode);
       return validated;
