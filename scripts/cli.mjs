@@ -17,6 +17,7 @@ import { syncSchedule } from './runtime/schedule-sync.mjs';
 import { OpenClawRuntimeAdapter } from './runtime/openclaw-runtime.mjs';
 import { GenericLocalRuntimeAdapter } from './runtime/generic-runtime.mjs';
 import { runDoctor } from './system/doctor.mjs';
+import { runInit } from './system/init.mjs';
 import { runMigrations } from './system/migrations.mjs';
 import { usageFor } from './system/usage.mjs';
 
@@ -50,6 +51,10 @@ async function runCommand(argv, root) {
   if (!group || group === 'help' || group === '--help' || group === '-h') return ok({ usage: usageFor() });
   if (action === 'help' || action === '--help' || options.help === true) return ok({ usage: usageFor(group) });
   if (group === 'doctor') return ok(await runDoctor(root));
+  if (group === 'init') {
+    const { warnings = [], ...data } = await runInit(root);
+    return ok(data, warnings);
+  }
   if (group === 'migrate') return ok(await runMigrations(root));
   const config = await loadConfig(root);
   const subscriptions = createSubscriptionStore(root);

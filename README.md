@@ -24,6 +24,8 @@ npm test
 
 运行数据不会写入安装目录。数据根目录默认为 `~/.zhuiju`（所有平台一致），可通过 `ZHUIJU_HOME` 指定其他位置。
 
+首次使用前需安装依赖（Agent 侧可通过 `/zhuiju init` 编排：先 `npm install`，再运行 `node scripts/cli.mjs init` 创建数据根目录、写入默认 `config.json` 并执行体检，幂等可重复执行）：
+
 可选的 `config.json` 放在数据根目录下，用于覆盖默认行为（未写的字段自动取默认值），结构见 `schemas/config.schema.json`：
 
 ```json
@@ -41,6 +43,7 @@ node scripts/cli.mjs subscription list
 node scripts/cli.mjs episode missing <subscription-id>
 node scripts/cli.mjs task enqueue --subscription <subscription-id> --mode incremental --trigger manual
 node scripts/cli.mjs runtime detect
+node scripts/cli.mjs init
 node scripts/cli.mjs doctor
 ```
 

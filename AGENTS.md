@@ -18,6 +18,8 @@ rtk npm install
 rtk node scripts/cli.mjs doctor
 ```
 
+`rtk` 只是本机开发工具：随 skill 分发的文件（`SKILL.md`、`README.md`、`references/`）中只能写 `npm install`、`node scripts/cli.mjs ...` 等可移植命令，不得出现 `rtk`，因为用户机器上没有它。
+
 不要将输出重定向到名为 `nul` 的文件；只有确实需要抑制输出时，才使用 PowerShell 的 `$null` 或 `Out-Null`。
 
 ## 目录结构

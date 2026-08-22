@@ -32,6 +32,7 @@ task context <subscription>`,
 schedule show <subscription>
 schedule remove <subscription>`,
   runtime: `runtime detect`,
+  init: `init`,
   doctor: `doctor`,
   migrate: `migrate`
 };

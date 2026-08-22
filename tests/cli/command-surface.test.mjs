@@ -40,6 +40,7 @@ test('covers the documented CLI command surface in an isolated data root', async
   assert.equal((await execute(['runtime', 'detect'], root)).ok, true);
   assert.equal((await execute(['queue', 'status'], root)).ok, true);
   assert.equal((await execute(['doctor'], root)).ok, true);
+  assert.equal((await execute(['init'], root)).ok, true);
   assert.equal((await execute(['migrate'], root)).ok, true);
   assert.equal((await execute(['subscription', 'remove', id], root)).data.removed, true);
 });
